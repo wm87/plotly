@@ -1,0 +1,74 @@
+[
+  {
+    "site": "Bonn",
+    "key": 100,
+    "stations": [
+      {
+        "station_name": "erste station",
+        "station_no": "001"
+      },
+      {
+        "station_name": "zweite station",
+        "station_no": "002"
+      },
+      {
+        "station_name": "dritte station",
+        "station_no": "003"
+      },
+      {
+        "station_name": "vierte station",
+        "station_no": "004"
+      }
+    ]
+  },
+  {
+    "site": "Wuppertal",
+    "key": 200,
+    "stations": [
+      {
+        "station_name": "erste station",
+        "station_no": "005"
+      },
+      {
+        "station_name": "zweite station",
+        "station_no": "006"
+      },
+      {
+        "station_name": "dritte station",
+        "station_no": "007"
+      }
+    ]
+  },
+  {
+    "site": "Dortmund",
+    "key": 300,
+    "stations": [
+      {
+        "station_name": "erste station",
+        "station_no": "008"
+      },
+      {
+        "station_name": "zweite station",
+        "station_no": "009"
+      },
+      {
+        "station_name": "dritte station",
+        "station_no": "010"
+      }
+    ]
+  },
+  {
+    "site": "Bochum",
+    "key": 400,
+    "stations": [
+      {
+        "station_name": "erste station",
+        "station_no": "011"
+      },
+      {
+        "station_name": "zweite station",
+        "station_no": "012"
+      }
+    ]
+  }
+]
