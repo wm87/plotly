@@ -80,3 +80,12 @@ python3 app_v2.py
 
 # Die App ist dann unter http://127.0.0.1:5002 erreichbar.
 ```
+
+### Beispiel mit Redis
+
+- Setup unter: proj1/parsing_tests/redis/
+  - siehe rm_redis.md
+
+- ca: 3000 DS pro Station
+
+![Redis](./screen_redis.png "redis")

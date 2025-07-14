@@ -1,50 +1,44 @@
+# save_to_redis_zset.py
+
 import csv
 import os
 import redis
+from datetime import datetime
 
-# Redis-Verbindung
 r = redis.Redis(host='localhost', port=6379, db=0)
-
-# Optional: Verbindung prüfen
-if r.ping():
-    print("✅ Redis Verbindung erfolgreich")
-
-# Optional: DB leeren
 r.flushdb()
 
-# Pfad zu CSV-Dateien
 csv_dir = '../../data/'
 
-
-def parse_csv_and_store(filename):
+def parse_and_store_zset(filename):
     with open(filename, encoding='utf-8') as f:
         reader = csv.reader(f, delimiter=';')
         metadata = {}
-        data = {}
+        records = []
 
         for row in reader:
             if row[0].startswith('#'):
                 key, value = row[0][1:], row[1]
                 metadata[key] = value
             else:
-                timestamp, val = row
-                data[timestamp] = val
+                timestamp_str, val_str = row
+                dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                ts_unix = dt.timestamp()
+                records.append((ts_unix, val_str))
 
         file_id = metadata.get('id', os.path.basename(filename))
-        redis_key = f"timeseries:{file_id}"
+        redis_key = f"zset:{file_id}"
 
-        # Redis Hash speichern
-        if data:
-            r.hset(redis_key, mapping=data)
-            print(f"📦 Gespeichert: {redis_key} mit {len(data)} Einträgen")
+        # Store as Redis Sorted Set
+        for score, value in records:
+            r.zadd(redis_key, {value: score})
 
+        print(f"✅ Gespeichert: {redis_key} mit {len(records)} Einträgen")
 
 def load_all():
     for file in os.listdir(csv_dir):
         if file.endswith('.csv'):
-            full_path = os.path.join(csv_dir, file)
-            parse_csv_and_store(full_path)
-
+            parse_and_store_zset(os.path.join(csv_dir, file))
 
 if __name__ == '__main__':
     load_all()
