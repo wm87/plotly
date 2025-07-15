@@ -1,18 +1,15 @@
 import json
-import redis
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
-import pandas as pd
+import polars as pl
 from datetime import datetime
 import time
-
-# Redis-Verbindung
-r = redis.Redis(host='localhost', port=6379, db=0)
+import os
 
 # Lade messorte.json
-with open('../../data/messorte.json', encoding='utf-8') as f:
+with open('../data/messorte.json', encoding='utf-8') as f:
     messorte_data = json.load(f)
 
 # Mapping für Dropdowns
@@ -20,20 +17,35 @@ site_to_stations = {entry["site"]: entry["stations"] for entry in messorte_data}
 site_options = [{'label': s['site'], 'value': s['site']} for s in messorte_data]
 
 
+# Lade Daten mit Polars
+from dateutil import parser
+
 def get_df(station_no):
-    redis_key = f"zset:{int(station_no)}"  # führende Nullen rausnehmen
-    data = r.zrange(redis_key, 0, -1, withscores=True)
-    if not data:
-        print(f"Warnung: Keine Daten für Redis-Key {redis_key}")
-        return pd.DataFrame(columns=['Timestamp', 'Value'])
-    timestamps = [datetime.fromtimestamp(score) for val, score in data]
-    values = [float(val.decode()) for val, score in data]
-    df = pd.DataFrame({'Timestamp': timestamps, 'Value': values})
-    return df
+    file_path = f"../data/{station_no}.csv"
+    if not os.path.exists(file_path):
+        print(f"⚠️ Datei nicht gefunden für Station {station_no}: {file_path}")
+        return pl.DataFrame(schema=[('Timestamp', pl.Datetime), ('Value', pl.Float64)])
+
+    try:
+        # Lade CSV als Strings (Timestamp als String, Value als Float)
+        df = (pl.read_csv(f"{file_path}",
+                          separator=';',
+                          skip_rows=3,
+                          new_columns=['x', 'y'])
+        .with_columns([
+            pl.col('x'),
+            pl.col('y').cast(pl.Float32)
+        ]))
+
+        return df
+
+    except Exception as e:
+        print(f"❌ Fehler beim Parsen der Datei {file_path}: {e}")
+        return pl.DataFrame(schema=[('Timestamp', pl.Datetime), ('Value', pl.Float64)])
 
 
 app = dash.Dash(__name__)
-app.title = "Multi-Zeitreihen-Viewer"
+app.title = "Multi-Zeitreihen-Viewer (Polars)"
 
 
 def dropdown_pair(index):
@@ -58,7 +70,7 @@ def dropdown_pair(index):
 
 
 app.layout = html.Div([
-    html.H2("📊 Vergleich von bis zu 4 Zeitreihen aus Redis"),
+    html.H2("📊 Vergleich von bis zu 4 Zeitreihen aus lokalen Dateien mit Polars"),
     *[dropdown_pair(i) for i in range(4)],
     dcc.Graph(id='multi-plot', style={'height': '600px'}),
     html.Div(id='load-time-display', style={'marginTop': '10px', 'fontWeight': 'bold', 'fontSize': '18px'})
@@ -97,23 +109,20 @@ def update_plot(station0, station1, station2, station3,
     for i, (station_no, site) in enumerate(zip(station_nos, site_values)):
         if station_no and site:
             df = get_df(station_no)
-            if df.empty:
+            if df.is_empty():
                 print(f"Keine Daten für Station {station_no} ({site})")
                 continue
+
             stations = site_to_stations.get(site, [])
             station_name = next((s['station_name'] for s in stations if s['station_no'] == station_no), station_no)
-            fig.add_trace(go.Scattergl(
-                x=df['Timestamp'],
-                y=df['Value'],
-                mode='lines',
-                name=f"{site} - {station_name}",
-                line=dict(color=colors[i % len(colors)])
-            ))
+
+            # Polars -> Plotly-kompatibel: Listen extrahieren
+            fig.add_trace(go.Scattergl(x=df['x'].to_list(), y=df['y'].to_list(), mode='lines', name=f'Station: {i}'))
 
     fig.update_layout(
         title="Zeitverlauf der ausgewählten Stationen",
         xaxis_title="Zeit",
-        yaxis_title="Wert",
+        yaxis_title="Messwert",
         height=600
     )
 
